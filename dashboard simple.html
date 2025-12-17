@@ -1,0 +1,1556 @@
+<!doctype html>
+<html lang="fi">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Offline Dashboard – Taulukot + CSV + Kartta</title>
+  <style>
+    :root{
+      --bg:#0b1020;
+      --panel:rgba(255,255,255,.06);
+      --panel2:rgba(255,255,255,.09);
+      --stroke:rgba(255,255,255,.14);
+      --text:rgba(255,255,255,.92);
+      --muted:rgba(255,255,255,.65);
+      --accent:#7c9cff;
+      --accent2:#7dffcc;
+      --warn:#ffb86b;
+      --radius:18px;
+      --shadow: 0 12px 40px rgba(0,0,0,.35);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:var(--sans);
+      color:var(--text);
+      background:
+        radial-gradient(1200px 600px at 12% 8%, rgba(124,156,255,.25), transparent 55%),
+        radial-gradient(900px 600px at 78% 22%, rgba(125,255,204,.16), transparent 55%),
+        radial-gradient(900px 700px at 55% 85%, rgba(255,184,107,.12), transparent 55%),
+        linear-gradient(180deg, #070a14 0%, #0b1020 45%, #070a14 100%);
+      min-height:100vh;
+    }
+    header{ padding:22px 22px 10px; max-width:1240px; margin:0 auto; }
+    .topbar{
+      display:flex; gap:12px; align-items:center; justify-content:space-between;
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+      border:1px solid var(--stroke);
+      border-radius: var(--radius);
+      padding:14px 14px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+      flex-wrap:wrap;
+    }
+    .title{ display:flex; flex-direction:column; gap:4px; }
+    .title h1{ font-size:16px; margin:0; letter-spacing:.3px; }
+    .title p{ margin:0; font-size:12px; color:var(--muted); max-width:80ch; }
+    .actions{ display:flex; gap:10px; flex-wrap:wrap; }
+    button{
+      border:1px solid var(--stroke);
+      background: rgba(255,255,255,.06);
+      color:var(--text);
+      border-radius: 12px;
+      padding:10px 12px;
+      cursor:pointer;
+      transition: transform .08s ease, background .15s ease, border-color .15s ease;
+      font-weight:700;
+      font-size:12px;
+      letter-spacing:.2px;
+      user-select:none;
+    }
+    button:hover{ background: rgba(255,255,255,.10); border-color: rgba(255,255,255,.20); }
+    button:active{ transform: translateY(1px); }
+    .btn-accent{
+      background: linear-gradient(135deg, rgba(124,156,255,.22), rgba(125,255,204,.14));
+      border-color: rgba(124,156,255,.35);
+    }
+    .btn-warn{ background: rgba(255,184,107,.14); border-color: rgba(255,184,107,.35); }
+    main{
+      max-width:1240px;
+      margin:0 auto;
+      padding: 12px 22px 26px;
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:14px;
+    }
+    .tabs{
+      display:flex; gap:10px; flex-wrap:wrap;
+      background: rgba(255,255,255,.05);
+      border:1px solid var(--stroke);
+      border-radius: var(--radius);
+      padding:10px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+    .tab{
+      padding:10px 12px;
+      border-radius: 14px;
+      border:1px solid transparent;
+      color:var(--muted);
+      background: transparent;
+      cursor:pointer;
+      font-weight:800;
+      font-size:12px;
+      letter-spacing:.2px;
+      user-select:none;
+    }
+    .tab.active{
+      color:var(--text);
+      background: rgba(255,255,255,.08);
+      border-color: rgba(255,255,255,.12);
+    }
+    .panel{
+      border:1px solid var(--stroke);
+      background: rgba(255,255,255,.05);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+      overflow:hidden;
+    }
+    .panel-head{
+      display:flex; align-items:flex-start; justify-content:space-between;
+      gap:12px;
+      padding:14px 14px 10px;
+      border-bottom:1px solid rgba(255,255,255,.08);
+      background: linear-gradient(180deg, rgba(255,255,255,.06), transparent);
+      flex-wrap:wrap;
+    }
+    .panel-head h2{ margin:0; font-size:14px; letter-spacing:.2px; }
+    .hint{ margin:3px 0 0; font-size:12px; color:var(--muted); max-width:90ch; }
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:6px 10px;
+      border-radius: 999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.04);
+      color: var(--muted);
+      font-size:11px;
+      white-space:nowrap;
+    }
+    .pill b{ color:var(--text); font-weight:900; }
+
+    .panel-body{
+      padding:14px;
+      display:grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap:14px;
+      align-items:stretch;
+    }
+    @media (max-width: 1020px){ .panel-body{ grid-template-columns:1fr; } }
+
+    .card{
+      border:1px solid rgba(255,255,255,.10);
+      border-radius: 16px;
+      background: rgba(0,0,0,.18);
+      overflow:hidden;
+      min-height: 380px;
+      display:flex;
+      flex-direction:column;
+    }
+    .card .card-head{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      padding:10px 12px;
+      border-bottom:1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.04);
+      flex-wrap:wrap;
+    }
+    .meta{ display:flex; flex-direction:column; gap:2px; }
+    .meta strong{ font-size:12px; }
+    .meta span{ font-size:11px; color:var(--muted); }
+    .small-actions{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; align-items:center; }
+    .small-actions button{ padding:8px 10px; font-size:11px; border-radius: 12px; }
+    .file-btn{
+      position:relative;
+      overflow:hidden;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+    }
+    .file-btn input[type="file"]{
+      position:absolute;
+      inset:0;
+      opacity:0;
+      cursor:pointer;
+    }
+
+    .table-wrap{
+      padding:10px 12px 12px;
+      overflow:auto;
+      flex:1;
+    }
+
+    table{
+      width:100%;
+      border-collapse:separate;
+      border-spacing:0;
+      min-width:520px;
+    }
+    thead th{
+      position:sticky;
+      top:0;
+      z-index:2;
+      background: rgba(12,16,32,.92);
+      backdrop-filter: blur(8px);
+      border-bottom:1px solid rgba(255,255,255,.10);
+      padding:10px 10px;
+      text-align:left;
+      font-size:11px;
+      color:var(--muted);
+      white-space:nowrap;
+    }
+    thead th .colname{
+      width: 160px;
+      max-width: 220px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.04);
+      color: var(--text);
+      padding:7px 9px;
+      border-radius: 12px;
+      outline:none;
+      font-family: var(--mono);
+      font-size:11px;
+    }
+    tbody td{
+      border-bottom:1px solid rgba(255,255,255,.06);
+      padding:8px 8px;
+      vertical-align:top;
+    }
+    tbody tr:hover td{ background: rgba(255,255,255,.03); }
+    .cell{
+      width: 100%;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(10,14,28,.60);
+      color: var(--text);
+      padding:8px 9px;
+      border-radius: 12px;
+      outline:none;
+      font-family: var(--mono);
+      font-size:12px;
+    }
+    .cell:focus{ border-color: rgba(124,156,255,.45); box-shadow: 0 0 0 4px rgba(124,156,255,.12); }
+    .row-actions{
+      display:flex;
+      gap:8px;
+      justify-content:flex-end;
+      align-items:center;
+      min-width:76px;
+    }
+    .icon-btn{
+      padding:8px 10px;
+      font-size:11px;
+      border-radius: 12px;
+    }
+
+    .status{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      font-size:12px; color:var(--muted);
+      padding:10px 12px;
+      border-top:1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.03);
+      flex-wrap:wrap;
+    }
+    .note{ font-size:11px; color:var(--muted); }
+
+    .viz-wrap{ height:100%; display:flex; flex-direction:column; }
+    .viz{
+      flex:1;
+      min-height: 320px;
+      width:100%;
+      border-radius: 16px;
+      border:1px solid rgba(255,255,255,.10);
+      background: radial-gradient(900px 420px at 22% 18%, rgba(124,156,255,.12), transparent 60%),
+                  radial-gradient(700px 420px at 82% 70%, rgba(125,255,204,.10), transparent 60%),
+                  rgba(0,0,0,.18);
+      overflow:hidden;
+      position:relative;
+    }
+    .viz svg{ width:100%; height:100%; display:block; }
+    .legend{
+      display:flex; gap:10px; flex-wrap:wrap;
+      margin-top:10px;
+      color:var(--muted);
+      font-size:11px;
+    }
+    .legend .swatch{ width:10px; height:10px; border-radius:3px; display:inline-block;
+      border:1px solid rgba(255,255,255,.18); background: rgba(124,156,255,.55); }
+    .legend .swatch2{ background: rgba(125,255,204,.55); }
+    .legend .swatch3{ background: rgba(255,184,107,.55); }
+
+    .tip{
+      position:absolute;
+      pointer-events:none;
+      padding:8px 10px;
+      border-radius: 12px;
+      background: rgba(0,0,0,.75);
+      border:1px solid rgba(255,255,255,.14);
+      color: var(--text);
+      font-size: 11px;
+      max-width: 280px;
+      transform: translate(-50%, -120%);
+      opacity:0;
+      transition: opacity .08s ease;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 10px 28px rgba(0,0,0,.35);
+    }
+    .tip strong{ display:block; font-size:11px; margin-bottom:2px; }
+    .tip .muted{ color:var(--muted); }
+
+    footer{
+      max-width:1240px;
+      margin:0 auto;
+      padding: 0 22px 22px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .kbd{
+      font-family: var(--mono);
+      font-size: 11px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.04);
+      padding:2px 6px;
+      border-radius: 8px;
+      color: var(--text);
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div class="topbar">
+    <div class="title">
+      <h1>Offline dashboard: taulukot + CSV + kartta</h1>
+      <p>Muokkaa sarakenimiä ylhäällä, lisää rivejä taulukkoon, tai tuo CSV. Kaikki toimii offline ja tallentuu selaimeen (localStorage).</p>
+    </div>
+    <div class="actions">
+      <button class="btn-accent" id="btnExportJSON">Vie JSON</button>
+      <button class="btn-accent" id="btnImportJSON">Tuo JSON</button>
+      <button class="btn-warn" id="btnReset">Nollaa kaikki</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="tabs" id="tabs"></div>
+  <div id="panels"></div>
+</main>
+
+<footer>
+  Pikakomennot: lisää rivi <span class="kbd">+ Lisää rivi</span>. CSV-tuonti hyväksyy pilkku- tai tab-erottimen. Karttaan saat tarkan basemapin tuomalla GeoJSONin map-panelissa.
+</footer>
+
+<script>
+/* ===========================
+   Offline Dashboard (no libs)
+   =========================== */
+const APP_KEY = "offline-dashboard-v2";
+
+const SECTIONS = [
+  {
+    id:"timeseries",
+    name:"Aikasarja",
+    description:"Sarakkeet (esim): date, value. Päivämäärä voi olla ISO (2025-01-01) tai timestamp (ms).",
+    defaultColumns:["date","value"],
+    defaultRows:[
+      {date:"2025-01-01", value:"12"},
+      {date:"2025-02-01", value:"18"},
+      {date:"2025-03-01", value:"13"},
+      {date:"2025-04-01", value:"22"},
+      {date:"2025-05-01", value:"19"},
+      {date:"2025-06-01", value:"27"},
+    ],
+    render: renderTimeSeries
+  },
+  {
+    id:"map",
+    name:"Karttanäkymä",
+    description:"Sarakkeet (esim): name, lat, lon, value. Kartalla on offline-basemap; voit myös tuoda tarkan GeoJSON-kartan.",
+    defaultColumns:["name","lat","lon","value"],
+    defaultRows:[
+      {name:"Helsinki", lat:"60.1699", lon:"24.9384", value:"9"},
+      {name:"Tampere", lat:"61.4978", lon:"23.7610", value:"6"},
+      {name:"Oulu", lat:"65.0121", lon:"25.4651", value:"5"},
+      {name:"Turku", lat:"60.4518", lon:"22.2666", value:"4"},
+      {name:"Rovaniemi", lat:"66.5039", lon:"25.7294", value:"7"},
+    ],
+    render: renderMap
+  },
+  {
+    id:"bar",
+    name:"Pylväsdiagrammi",
+    description:"Sarakkeet (esim): label, value.",
+    defaultColumns:["label","value"],
+    defaultRows:[
+      {label:"Tuote A", value:"120"},
+      {label:"Tuote B", value:"90"},
+      {label:"Tuote C", value:"140"},
+      {label:"Tuote D", value:"70"},
+      {label:"Tuote E", value:"110"},
+    ],
+    render: renderBar
+  },
+  {
+    id:"bubble",
+    name:"Bubble chart",
+    description:"Sarakkeet (esim): name, x, y, size.",
+    defaultColumns:["name","x","y","size"],
+    defaultRows:[
+      {name:"Alpha", x:"10", y:"7", size:"12"},
+      {name:"Beta", x:"15", y:"4", size:"8"},
+      {name:"Gamma", x:"6", y:"12", size:"10"},
+      {name:"Delta", x:"18", y:"11", size:"14"},
+      {name:"Epsilon", x:"9", y:"3", size:"7"},
+      {name:"Zeta", x:"13", y:"9", size:"11"},
+    ],
+    render: renderBubble
+  },
+  {
+    id:"treemap",
+    name:"Puudiagrammi",
+    description:"Sarakkeet (esim): path, value. Polku muodossa Osasto/Alakategoria/Nimike.",
+    defaultColumns:["path","value"],
+    defaultRows:[
+      {path:"Myynti/Eurooppa/Suomi", value:"34"},
+      {path:"Myynti/Eurooppa/Ruotsi", value:"28"},
+      {path:"Myynti/Eurooppa/Saksa", value:"22"},
+      {path:"Myynti/Aasia/Japani", value:"18"},
+      {path:"Myynti/Aasia/Korea", value:"12"},
+      {path:"Tuote/Kehitys/Frontend", value:"16"},
+      {path:"Tuote/Kehitys/Backend", value:"24"},
+      {path:"Tuote/Kehitys/Data", value:"14"},
+      {path:"Tuote/Design", value:"10"},
+    ],
+    render: renderTreemap
+  }
+];
+
+// Per-section map GeoJSON (optional import)
+const DEFAULT_BASEMAP = makeStylizedWorldBasemapGeoJSON(); // lightweight, offline
+const state = loadState();
+
+/* ---------- UI build ---------- */
+const tabsEl = document.getElementById("tabs");
+const panelsEl = document.getElementById("panels");
+
+SECTIONS.forEach((s, idx) => {
+  const tab = document.createElement("div");
+  tab.className = "tab" + (idx===0 ? " active" : "");
+  tab.textContent = s.name;
+  tab.dataset.target = s.id;
+  tab.addEventListener("click", () => activate(s.id));
+  tabsEl.appendChild(tab);
+});
+
+SECTIONS.forEach((s, idx) => panelsEl.appendChild(makePanel(s, idx===0)));
+
+activate(SECTIONS[0].id);
+renderAll();
+
+/* ---------- Top buttons ---------- */
+document.getElementById("btnExportJSON").addEventListener("click", () => {
+  const payload = JSON.stringify(state, null, 2);
+  downloadBlob(payload, "dashboard-data.json", "application/json");
+});
+
+document.getElementById("btnImportJSON").addEventListener("click", async () => {
+  const file = await pickFile({accept:".json,application/json"});
+  if(!file) return;
+  try{
+    const obj = JSON.parse(await file.text());
+    if(!obj || typeof obj !== "object") throw new Error("Virheellinen JSON");
+    SECTIONS.forEach(sec => {
+      if(obj[sec.id] && typeof obj[sec.id] === "object"){
+        state[sec.id] = sanitizeSectionState(sec, obj[sec.id]);
+      }
+    });
+    if(obj.__mapGeoJson && typeof obj.__mapGeoJson === "object"){
+      state.__mapGeoJson = obj.__mapGeoJson;
+    }
+    saveState();
+    refreshAllTablesFromState();
+    renderAll();
+  }catch(e){
+    alert("Tuonti epäonnistui: " + (e?.message || e));
+  }
+});
+
+document.getElementById("btnReset").addEventListener("click", () => {
+  if(!confirm("Nollataanko kaikki taulukot ja tallennus?")) return;
+  localStorage.removeItem(APP_KEY);
+  location.reload();
+});
+
+/* ===========================
+   Panel creation (Table input)
+   =========================== */
+function makePanel(section, visible){
+  // init section state
+  if(!state[section.id]) state[section.id] = {
+    columns: section.defaultColumns.slice(),
+    rows: section.defaultRows.map(r => ({...r}))
+  };
+  state[section.id] = sanitizeSectionState(section, state[section.id]);
+
+  const panel = document.createElement("section");
+  panel.className = "panel";
+  panel.dataset.panel = section.id;
+  panel.style.display = visible ? "block" : "none";
+
+  const isMap = section.id === "map";
+
+  panel.innerHTML = `
+    <div class="panel-head">
+      <div>
+        <h2>${escapeHtml(section.name)}</h2>
+        <p class="hint">${escapeHtml(section.description)}</p>
+      </div>
+      <div class="pill"><b>Offline</b> · taulukko + CSV</div>
+    </div>
+
+    <div class="panel-body">
+      <div class="card">
+        <div class="card-head">
+          <div class="meta">
+            <strong>Data-taulukko</strong>
+            <span>Muuta sarakenimiä ylhäältä · rivit tallentuvat automaattisesti</span>
+          </div>
+
+          <div class="small-actions">
+            <button class="icon-btn" data-addrow="${section.id}">+ Lisää rivi</button>
+            <button class="icon-btn" data-fill="${section.id}">Täytä esimerkillä</button>
+            <button class="icon-btn" data-clear="${section.id}">Tyhjennä</button>
+            <button class="icon-btn btn-accent" data-exportcsv="${section.id}">Vie CSV</button>
+            <button class="icon-btn btn-accent file-btn" data-importcsv="${section.id}">
+              Tuo CSV
+              <input type="file" accept=".csv,text/csv,.tsv,text/tab-separated-values" />
+            </button>
+            ${isMap ? `
+              <button class="icon-btn btn-accent file-btn" data-importgeo="${section.id}">
+                Tuo GeoJSON-kartta
+                <input type="file" accept=".geojson,.json,application/geo+json,application/json" />
+              </button>
+              <button class="icon-btn" data-cleargeo="${section.id}">Palauta basemap</button>
+            ` : ``}
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table data-table="${section.id}">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+          <div class="note" style="margin-top:10px">
+            Vinkki: CSV-tuonnissa ensimmäinen rivi tulkitaan otsikoiksi. Voit muuttaa otsikoita myös tässä.
+          </div>
+        </div>
+
+        <div class="status" data-status="${section.id}">
+          <span>OK.</span>
+          <span class="pill">Rivejä: <b>0</b></span>
+        </div>
+      </div>
+
+      <div class="viz-wrap">
+        <div class="viz" data-viz="${section.id}">
+          <div class="tip" data-tip="${section.id}"></div>
+          <svg viewBox="0 0 900 520" preserveAspectRatio="none" aria-label="${escapeHtml(section.name)}"></svg>
+        </div>
+        <div class="legend">
+          <span><span class="swatch"></span> pääsarja</span>
+          <span><span class="swatch2"></span> apuviiva</span>
+          <span><span class="swatch3"></span> korostus</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Hook buttons
+  panel.querySelector(`[data-addrow="${section.id}"]`).addEventListener("click", () => {
+    addEmptyRow(section.id);
+  });
+  panel.querySelector(`[data-fill="${section.id}"]`).addEventListener("click", () => {
+    state[section.id].columns = section.defaultColumns.slice();
+    state[section.id].rows = section.defaultRows.map(r => ({...r}));
+    saveState();
+    renderTable(section.id);
+    renderSection(section.id);
+  });
+  panel.querySelector(`[data-clear="${section.id}"]`).addEventListener("click", () => {
+    state[section.id].rows = [];
+    saveState();
+    renderTable(section.id);
+    renderSection(section.id);
+  });
+  panel.querySelector(`[data-exportcsv="${section.id}"]`).addEventListener("click", () => {
+    const csv = sectionToCSV(section.id);
+    downloadBlob(csv, `${section.id}.csv`, "text/csv");
+  });
+
+  const csvWrap = panel.querySelector(`[data-importcsv="${section.id}"] input[type="file"]`);
+  csvWrap.addEventListener("change", async () => {
+    const file = csvWrap.files?.[0];
+    csvWrap.value = "";
+    if(!file) return;
+    try{
+      const text = await file.text();
+      const parsed = parseCSVorTSV(text);
+      if(!parsed.columns.length) throw new Error("CSV ei sisältänyt otsikoita.");
+      state[section.id].columns = parsed.columns;
+      state[section.id].rows = parsed.rows;
+      saveState();
+      renderTable(section.id);
+      renderSection(section.id);
+    }catch(e){
+      alert("CSV-tuonti epäonnistui: " + (e?.message || e));
+    }
+  });
+
+  if(section.id === "map"){
+    const geoInput = panel.querySelector(`[data-importgeo="${section.id}"] input[type="file"]`);
+    geoInput.addEventListener("change", async () => {
+      const file = geoInput.files?.[0];
+      geoInput.value = "";
+      if(!file) return;
+      try{
+        const obj = JSON.parse(await file.text());
+        // very light validation: FeatureCollection or Geometry
+        if(!obj || typeof obj !== "object") throw new Error("GeoJSON on tyhjä/virheellinen.");
+        state.__mapGeoJson = obj;
+        saveState();
+        renderSection("map");
+      }catch(e){
+        alert("GeoJSON-tuonti epäonnistui: " + (e?.message || e));
+      }
+    });
+    panel.querySelector(`[data-cleargeo="${section.id}"]`).addEventListener("click", () => {
+      delete state.__mapGeoJson;
+      saveState();
+      renderSection("map");
+    });
+  }
+
+  // Initial table render
+  renderTable(section.id);
+
+  return panel;
+}
+
+function activate(id){
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.target === id));
+  document.querySelectorAll("[data-panel]").forEach(p => p.style.display = (p.dataset.panel === id) ? "block" : "none");
+  renderSection(id);
+}
+
+function refreshAllTablesFromState(){
+  SECTIONS.forEach(s => renderTable(s.id));
+}
+
+function addEmptyRow(sectionId){
+  const sec = state[sectionId];
+  const row = {};
+  sec.columns.forEach(c => row[c] = "");
+  sec.rows.push(row);
+  saveState();
+  renderTable(sectionId);
+  renderSection(sectionId);
+}
+
+/* ===========================
+   Table rendering + editing
+   =========================== */
+function renderTable(sectionId){
+  const table = document.querySelector(`table[data-table="${sectionId}"]`);
+  if(!table) return;
+  const sec = state[sectionId];
+
+  // THEAD with editable column names
+  const thead = table.querySelector("thead");
+  thead.innerHTML = "";
+  const trh = document.createElement("tr");
+
+  sec.columns.forEach((col, idx) => {
+    const th = document.createElement("th");
+    const input = document.createElement("input");
+    input.className = "colname";
+    input.value = col;
+    input.placeholder = "sarake";
+    input.addEventListener("input", () => {
+      // rename column key in all rows (preserve data)
+      const newName = input.value.trim() || `col${idx+1}`;
+      const oldName = sec.columns[idx];
+      if(newName === oldName) return;
+      // prevent duplicates
+      if(sec.columns.some((c,i)=>i!==idx && c===newName)){
+        input.style.borderColor = "rgba(255,184,107,.6)";
+        return;
+      }else{
+        input.style.borderColor = "rgba(255,255,255,.12)";
+      }
+      sec.columns[idx] = newName;
+      sec.rows.forEach(r => {
+        if(oldName in r){
+          r[newName] = r[oldName];
+          delete r[oldName];
+        }else{
+          if(!(newName in r)) r[newName] = "";
+        }
+      });
+      saveState();
+      // rerender body to reflect keys
+      renderTable(sectionId);
+      renderSection(sectionId);
+    });
+    th.appendChild(input);
+    trh.appendChild(th);
+  });
+
+  const thActions = document.createElement("th");
+  thActions.textContent = "Rivi";
+  trh.appendChild(thActions);
+  thead.appendChild(trh);
+
+  // TBODY
+  const tbody = table.querySelector("tbody");
+  tbody.innerHTML = "";
+
+  sec.rows.forEach((row, rowIdx) => {
+    const tr = document.createElement("tr");
+
+    sec.columns.forEach(col => {
+      const td = document.createElement("td");
+      const inp = document.createElement("input");
+      inp.className = "cell";
+      inp.value = (row[col] ?? "");
+      inp.addEventListener("input", () => {
+        row[col] = inp.value;
+        saveState();
+        renderSection(sectionId);
+      });
+      td.appendChild(inp);
+      tr.appendChild(td);
+    });
+
+    const tdA = document.createElement("td");
+    tdA.className = "row-actions";
+    const del = document.createElement("button");
+    del.className = "icon-btn";
+    del.textContent = "Poista";
+    del.addEventListener("click", () => {
+      sec.rows.splice(rowIdx, 1);
+      saveState();
+      renderTable(sectionId);
+      renderSection(sectionId);
+    });
+    tdA.appendChild(del);
+    tr.appendChild(tdA);
+
+    tbody.appendChild(tr);
+  });
+
+  // Status update
+  updateStatus(sectionId, sec.rows.length);
+}
+
+function updateStatus(sectionId, count){
+  const el = document.querySelector(`[data-status="${sectionId}"]`);
+  if(!el) return;
+  const left = el.querySelector("span");
+  const right = el.querySelector(".pill b");
+  if(right) right.textContent = String(count);
+  if(left) left.textContent = count ? "OK." : "Ei rivejä (lisää dataa tai tuo CSV).";
+}
+
+/* ===========================
+   CSV helpers
+   =========================== */
+function parseCSVorTSV(text){
+  const lines = (text || "")
+    .split(/\r?\n/)
+    .map(s => s.trim())
+    .filter(s => s.length && !s.startsWith("#"));
+  if(!lines.length) return {columns:[], rows:[]};
+
+  const delimiter = lines.some(l=>l.includes("\t")) ? "\t" : ",";
+  const columns = splitLine(lines[0], delimiter).map(s => s.trim()).filter(Boolean);
+
+  const rows = [];
+  for(let i=1;i<lines.length;i++){
+    const parts = splitLine(lines[i], delimiter);
+    const row = {};
+    columns.forEach((c, idx) => row[c] = (parts[idx] ?? "").trim());
+    // ignore completely empty rows
+    if(columns.some(c => (row[c] ?? "").trim() !== "")) rows.push(row);
+  }
+  return {columns, rows};
+}
+function splitLine(line, delimiter){
+  // intentionally simple: no quoted CSV; works great for Excel/Sheets copy/export
+  return line.split(delimiter);
+}
+function sectionToCSV(sectionId){
+  const sec = state[sectionId];
+  const cols = sec.columns;
+  const header = cols.join(",");
+  const body = sec.rows.map(r => cols.map(c => csvEscape(r[c] ?? "")).join(",")).join("\n");
+  return header + "\n" + body + "\n";
+}
+function csvEscape(v){
+  const s = String(v ?? "");
+  if(/[",\n]/.test(s)) return `"${s.replaceAll('"','""')}"`;
+  return s;
+}
+
+/* ===========================
+   State persistence
+   =========================== */
+function loadState(){
+  try{
+    const raw = localStorage.getItem(APP_KEY);
+    if(!raw) return {};
+    const obj = JSON.parse(raw);
+    return (obj && typeof obj === "object") ? obj : {};
+  }catch{ return {}; }
+}
+function saveState(){
+  localStorage.setItem(APP_KEY, JSON.stringify(state));
+}
+function sanitizeSectionState(section, ss){
+  const out = { columns:[], rows:[] };
+  out.columns = Array.isArray(ss.columns) ? ss.columns.map(x => String(x).trim()).filter(Boolean) : section.defaultColumns.slice();
+  if(!out.columns.length) out.columns = section.defaultColumns.slice();
+  // de-dupe columns
+  const seen = new Set();
+  out.columns = out.columns.map((c,i)=>{
+    let name = c || `col${i+1}`;
+    while(seen.has(name)) name = name + "_";
+    seen.add(name);
+    return name;
+  });
+
+  out.rows = Array.isArray(ss.rows) ? ss.rows.map(r => (r && typeof r === "object") ? {...r} : {}) : [];
+  // ensure keys exist
+  out.rows.forEach(r => out.columns.forEach(c => { if(!(c in r)) r[c] = ""; }));
+  return out;
+}
+
+/* ===========================
+   Render dispatcher
+   =========================== */
+function renderAll(){ SECTIONS.forEach(s => renderSection(s.id)); }
+
+function renderSection(id){
+  const secDef = SECTIONS.find(s => s.id === id);
+  if(!secDef) return;
+
+  const sec = state[id] ?? {columns:[], rows:[]};
+  updateStatus(id, sec.rows.length);
+
+  const vizSvg = document.querySelector(`[data-viz="${id}"] svg`);
+  const tip = document.querySelector(`[data-tip="${id}"]`);
+  clearSvg(vizSvg);
+
+  try{
+    secDef.render({ sectionId:id, columns: sec.columns, rows: sec.rows, svg: vizSvg, tip });
+  }catch(e){
+    drawError(vizSvg, "Piirto epäonnistui", e?.message || String(e));
+  }
+}
+
+/* ===========================
+   Drawing primitives (SVG)
+   =========================== */
+function clearSvg(svg){ while(svg.firstChild) svg.removeChild(svg.firstChild); }
+
+function el(tag, attrs={}, children=[]){
+  const n = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for(const [k,v] of Object.entries(attrs)){
+    if(v === undefined || v === null) continue;
+    n.setAttribute(k, String(v));
+  }
+  for(const c of children) n.appendChild(c);
+  return n;
+}
+
+function drawAxes(svg, bounds){
+  const {x0,y0,w,h} = bounds;
+  const g = el("g",{});
+  const gx=6, gy=5;
+  for(let i=0;i<=gx;i++){
+    const x = x0 + (w*i/gx);
+    g.appendChild(el("line",{x1:x,y1:y0,x2:x,y2:y0+h,stroke:"rgba(255,255,255,.09)","stroke-width":"1"}));
+  }
+  for(let j=0;j<=gy;j++){
+    const y = y0 + (h*j/gy);
+    g.appendChild(el("line",{x1:x0,y1:y,x2:x0+w,y2:y,stroke:"rgba(255,255,255,.09)","stroke-width":"1"}));
+  }
+  g.appendChild(el("rect",{x:x0,y:y0,width:w,height:h,fill:"none",stroke:"rgba(255,255,255,.16)","stroke-width":"1"}));
+  svg.appendChild(g);
+}
+
+function drawLabel(svg, x, y, text, size=12, opacity=0.75){
+  svg.appendChild(el("text", {
+    x, y, fill:`rgba(255,255,255,${opacity})`,
+    "font-size": String(size),
+    "font-weight":"800",
+    "font-family":"ui-sans-serif, system-ui",
+  }, [document.createTextNode(text)]));
+}
+
+function drawError(svg, title, detail){
+  drawLabel(svg, 24, 40, title, 16, 0.9);
+  drawLabel(svg, 24, 70, detail, 12, 0.7);
+}
+
+/* Tooltip */
+function setTip(tipEl, show, x, y, html){
+  if(!tipEl) return;
+  if(!show){ tipEl.style.opacity = "0"; return; }
+  tipEl.innerHTML = html;
+  tipEl.style.left = x + "px";
+  tipEl.style.top  = y + "px";
+  tipEl.style.opacity = "1";
+}
+function attachTip(vizDiv, tipEl, items){
+  vizDiv.onmouseleave = () => setTip(tipEl,false);
+  items.forEach(it => {
+    it.node.addEventListener("mousemove", (e) => {
+      const rect = vizDiv.getBoundingClientRect();
+      setTip(tipEl, true, e.clientX - rect.left, e.clientY - rect.top, it.format(it.data));
+    });
+    it.node.addEventListener("mouseleave", () => setTip(tipEl,false));
+  });
+}
+
+/* ===========================
+   Charts
+   =========================== */
+
+/* --- Aikasarja --- */
+function renderTimeSeries({rows, svg, tip}){
+  const pts = rows
+    .map(r => ({
+      t: parseDate(anyKey(r, ["date","Date","time","Time"])),
+      v: toNum(anyKey(r, ["value","Value","y","Y"]))
+    }))
+    .filter(p => isFinite(p.t) && isFinite(p.v))
+    .sort((a,b)=>a.t-b.t);
+
+  if(pts.length < 2){
+    drawError(svg, "Aikasarja", "Tarvitaan vähintään 2 riviä (date + value).");
+    return;
+  }
+
+  const W=900,H=520;
+  const pad = {l:56,r:24,t:28,b:52};
+  const x0=pad.l, y0=pad.t, w=W-pad.l-pad.r, h=H-pad.t-pad.b;
+  drawAxes(svg,{x0,y0,w,h});
+
+  const tMin = Math.min(...pts.map(p=>p.t));
+  const tMax = Math.max(...pts.map(p=>p.t));
+  const vMin0 = Math.min(...pts.map(p=>p.v));
+  const vMax0 = Math.max(...pts.map(p=>p.v));
+  const vPad = (vMax0-vMin0)*0.08 || 1;
+  const vMin = vMin0 - vPad;
+  const vMax = vMax0 + vPad;
+
+  const xScale = t => x0 + ((t - tMin) / (tMax - tMin || 1)) * w;
+  const yScale = v => y0 + h - ((v - vMin) / (vMax - vMin || 1)) * h;
+
+  let d = "";
+  pts.forEach((p,i)=>{
+    const x=xScale(p.t), y=yScale(p.v);
+    d += (i===0?`M ${x} ${y}`:` L ${x} ${y}`);
+  });
+
+  const defs = el("defs");
+  const grad = el("linearGradient",{id:"gradLine",x1:"0",y1:"0",x2:"0",y2:"1"});
+  grad.appendChild(el("stop",{offset:"0%","stop-color":"rgba(124,156,255,.40)"}));
+  grad.appendChild(el("stop",{offset:"100%","stop-color":"rgba(124,156,255,0)"}));
+  defs.appendChild(grad);
+  svg.appendChild(defs);
+
+  const areaD = d + ` L ${xScale(pts[pts.length-1].t)} ${y0+h} L ${xScale(pts[0].t)} ${y0+h} Z`;
+  svg.appendChild(el("path",{d:areaD,fill:"url(#gradLine)",stroke:"none"}));
+  svg.appendChild(el("path",{d,fill:"none",stroke:"rgba(124,156,255,.92)","stroke-width":"3","stroke-linecap":"round","stroke-linejoin":"round"}));
+
+  const vizDiv = svg.closest(".viz");
+  const tipItems = [];
+  pts.forEach(p=>{
+    const cx=xScale(p.t), cy=yScale(p.v);
+    const c = el("circle",{cx,cy,r:"5.2",fill:"rgba(125,255,204,.75)",stroke:"rgba(255,255,255,.18)","stroke-width":"1"});
+    svg.appendChild(c);
+    tipItems.push({
+      node:c,
+      data:p,
+      format:(d)=>`<strong>${fmtDate(d.t)}</strong><div class="muted">value: <b>${d.v}</b></div>`
+    });
+  });
+  attachTip(vizDiv, tip, tipItems);
+
+  drawLabel(svg, x0, y0-8, "value over time", 12, 0.7);
+  drawLabel(svg, x0, y0+h+34, `${fmtDate(tMin)} → ${fmtDate(tMax)}`, 11, 0.65);
+}
+
+/* --- Kartta --- */
+function renderMap({rows, svg, tip}){
+  const pts = rows.map(r => ({
+    name: String(anyKey(r, ["name","Name","label","Label"]) ?? "Nimetön").trim() || "Nimetön",
+    lat: toNum(anyKey(r, ["lat","Lat"])),
+    lon: toNum(anyKey(r, ["lon","Lon","lng","Lng","long","Long"])),
+    value: toNum(anyKey(r, ["value","Value","size","Size"]) ?? 1)
+  })).filter(p => isFinite(p.lat) && isFinite(p.lon));
+
+  const W=900,H=520;
+  const pad = {l:18,r:18,t:18,b:18};
+  const x0=pad.l, y0=pad.t, w=W-pad.l-pad.r, h=H-pad.t-pad.b;
+
+  // Ocean frame
+  svg.appendChild(el("rect",{x:x0,y:y0,width:w,height:h,rx:"16",ry:"16",
+    fill:"rgba(10,14,28,.55)",stroke:"rgba(255,255,255,.14)","stroke-width":"1"}));
+
+  // Graticule
+  const gGrid = el("g",{});
+  const lonLines = 12, latLines = 7;
+  for(let i=0;i<=lonLines;i++){
+    const x = x0 + w*(i/lonLines);
+    gGrid.appendChild(el("line",{x1:x,y1:y0,x2:x,y2:y0+h,stroke:"rgba(255,255,255,.08)","stroke-width":"1"}));
+  }
+  for(let j=0;j<=latLines;j++){
+    const y = y0 + h*(j/latLines);
+    gGrid.appendChild(el("line",{x1:x0,y1:y,x2:x0+w,y2:y,stroke:"rgba(255,255,255,.08)","stroke-width":"1"}));
+  }
+  svg.appendChild(gGrid);
+
+  // Basemap (either imported GeoJSON or default stylized)
+  const basemap = state.__mapGeoJson || DEFAULT_BASEMAP;
+  drawGeoJSON(svg, basemap, {x0,y0,w,h});
+
+  // Project equirectangular
+  const xScale = lon => x0 + ((lon + 180) / 360) * w;
+  const yScale = lat => y0 + h - ((lat + 90) / 180) * h;
+
+  if(pts.length === 0){
+    drawLabel(svg, x0+16, y0+34, "Ei pisteitä. Lisää rivejä: name, lat, lon, value", 12, 0.75);
+    return;
+  }
+
+  const vMin = Math.min(...pts.map(p=>p.value));
+  const vMax = Math.max(...pts.map(p=>p.value));
+  const rScale = v => {
+    if(!isFinite(v)) return 8;
+    if(vMax === vMin) return 12;
+    const t = (v - vMin)/(vMax - vMin);
+    return 7 + t*18;
+  };
+
+  const vizDiv = svg.closest(".viz");
+  const tipItems = [];
+
+  pts.forEach(p=>{
+    const cx=xScale(p.lon), cy=yScale(p.lat);
+    const r=rScale(p.value);
+
+    // shadow glow
+    const glow = el("circle",{cx,cy,r:r+6,fill:"rgba(124,156,255,.10)"});
+    svg.appendChild(glow);
+
+    const c = el("circle",{cx,cy,r,
+      fill:"rgba(125,255,204,.20)",
+      stroke:"rgba(124,156,255,.85)","stroke-width":"2"
+    });
+    svg.appendChild(c);
+
+    tipItems.push({
+      node:c,
+      data:p,
+      format:(d)=>`<strong>${escapeHtml(d.name)}</strong>
+        <div class="muted">lat: <b>${d.lat}</b>, lon: <b>${d.lon}</b></div>
+        <div class="muted">value: <b>${d.value}</b></div>`
+    });
+  });
+
+  attachTip(vizDiv, tip, tipItems);
+  drawLabel(svg, x0+12, y0+24, "Kartta (offline basemap + pisteet)", 12, 0.7);
+  if(state.__mapGeoJson){
+    drawLabel(svg, x0+12, y0+42, "Basemap: tuotu GeoJSON", 11, 0.6);
+  }else{
+    drawLabel(svg, x0+12, y0+42, "Basemap: kevyt tyylitelty offline", 11, 0.6);
+  }
+}
+
+/* --- Pylväät --- */
+function renderBar({rows, svg, tip}){
+  const data = rows.map(r => ({
+    label: String(anyKey(r, ["label","Label","name","Name"]) ?? "—").trim() || "—",
+    value: toNum(anyKey(r, ["value","Value","y","Y"]))
+  })).filter(d => isFinite(d.value));
+
+  if(!data.length){
+    drawError(svg, "Pylväsdiagrammi", "Tarvitaan sarakkeet: label + value (numeric).");
+    return;
+  }
+
+  const W=900,H=520;
+  const pad = {l:56,r:24,t:28,b:68};
+  const x0=pad.l, y0=pad.t, w=W-pad.l-pad.r, h=H-pad.t-pad.b;
+
+  drawAxes(svg,{x0,y0,w,h});
+
+  const maxV = Math.max(...data.map(d=>d.value));
+  const minV = Math.min(0, ...data.map(d=>d.value));
+  const yScale = v => y0 + h - ((v - minV) / (maxV - minV || 1)) * h;
+
+  const barW = w / data.length;
+  const gap = Math.min(10, barW*0.22);
+
+  const vizDiv = svg.closest(".viz");
+  const tipItems = [];
+
+  data.forEach((d,i)=>{
+    const x = x0 + i*barW + gap/2;
+    const bw = Math.max(4, barW - gap);
+    const y = yScale(Math.max(d.value, minV));
+    const yBase = yScale(0);
+    const hh = Math.abs(yBase - y);
+
+    const rect = el("rect",{
+      x, y: Math.min(y,yBase),
+      width:bw, height:hh,
+      rx:"10", ry:"10",
+      fill:"rgba(124,156,255,.55)",
+      stroke:"rgba(255,255,255,.14)","stroke-width":"1"
+    });
+    svg.appendChild(rect);
+
+    const tx = x + bw/2;
+    const label = d.label.length > 10 ? d.label.slice(0,10)+"…" : d.label;
+    const t = el("text",{
+      x:tx,y:y0+h+30,fill:"rgba(255,255,255,.70)",
+      "font-size":"11","text-anchor":"middle",
+      "font-family":"ui-sans-serif, system-ui"
+    },[document.createTextNode(label)]);
+    svg.appendChild(t);
+
+    tipItems.push({
+      node: rect,
+      data: d,
+      format:(p)=>`<strong>${escapeHtml(p.label)}</strong><div class="muted">value: <b>${p.value}</b></div>`
+    });
+  });
+
+  svg.appendChild(el("line",{x1:x0,y1:yScale(0),x2:x0+w,y2:yScale(0),stroke:"rgba(125,255,204,.35)","stroke-width":"2"}));
+  attachTip(vizDiv, tip, tipItems);
+
+  drawLabel(svg, x0, y0-8, "Bar chart", 12, 0.7);
+}
+
+/* --- Bubble --- */
+function renderBubble({rows, svg, tip}){
+  const data = rows.map(r => ({
+    name: String(anyKey(r, ["name","Name","label","Label"]) ?? "—").trim() || "—",
+    x: toNum(anyKey(r, ["x","X"])),
+    y: toNum(anyKey(r, ["y","Y"])),
+    size: toNum(anyKey(r, ["size","Size","value","Value"]) ?? 1)
+  })).filter(d => isFinite(d.x) && isFinite(d.y) && isFinite(d.size));
+
+  if(!data.length){
+    drawError(svg, "Bubble chart", "Tarvitaan numeeriset: x, y, size (+ nimi).");
+    return;
+  }
+
+  const W=900,H=520;
+  const pad = {l:56,r:24,t:28,b:52};
+  const x0=pad.l, y0=pad.t, w=W-pad.l-pad.r, h=H-pad.t-pad.b;
+  drawAxes(svg,{x0,y0,w,h});
+
+  const xMin = Math.min(...data.map(d=>d.x));
+  const xMax = Math.max(...data.map(d=>d.x));
+  const yMin = Math.min(...data.map(d=>d.y));
+  const yMax = Math.max(...data.map(d=>d.y));
+  const sMin = Math.min(...data.map(d=>d.size));
+  const sMax = Math.max(...data.map(d=>d.size));
+
+  const xScale = v => x0 + ((v-xMin)/(xMax-xMin||1))*w;
+  const yScale = v => y0 + h - ((v-yMin)/(yMax-yMin||1))*h;
+  const rScale = s => {
+    if(sMax===sMin) return 14;
+    const t=(s-sMin)/(sMax-sMin);
+    return 8 + t*26;
+  };
+
+  const vizDiv = svg.closest(".viz");
+  const tipItems = [];
+
+  data.forEach(d=>{
+    const cx=xScale(d.x), cy=yScale(d.y), r=rScale(d.size);
+    const c = el("circle",{
+      cx,cy,r,
+      fill:"rgba(125,255,204,.22)",
+      stroke:"rgba(124,156,255,.70)","stroke-width":"2"
+    });
+    svg.appendChild(c);
+
+    tipItems.push({
+      node:c,
+      data:d,
+      format:(p)=>`<strong>${escapeHtml(p.name)}</strong>
+        <div class="muted">x: <b>${p.x}</b>, y: <b>${p.y}</b></div>
+        <div class="muted">size: <b>${p.size}</b></div>`
+    });
+  });
+
+  attachTip(vizDiv, tip, tipItems);
+  drawLabel(svg, x0, y0-8, "Bubble chart (x, y, size)", 12, 0.7);
+}
+
+/* --- Treemap --- */
+function renderTreemap({rows, svg, tip}){
+  const items = rows.map(r => ({
+    path: String(anyKey(r, ["path","Path","name","Name"]) ?? "").trim(),
+    value: toNum(anyKey(r, ["value","Value","size","Size"]))
+  })).filter(d => d.path && isFinite(d.value) && d.value > 0);
+
+  if(!items.length){
+    drawError(svg, "Puudiagrammi", "Tarvitaan: path (A/B/C) ja value (>0).");
+    return;
+  }
+
+  const root = { name:"root", children:[], value:0 };
+  for(const it of items){
+    const parts = it.path.split("/").map(s=>s.trim()).filter(Boolean);
+    let node = root;
+    parts.forEach((p, idx) => {
+      let child = node.children.find(c=>c.name===p);
+      if(!child){
+        child = { name:p, children:[], value:0 };
+        node.children.push(child);
+      }
+      node = child;
+      if(idx === parts.length-1) node.value += it.value;
+    });
+  }
+  (function sum(n){
+    if(!n.children.length) return n.value;
+    n.value = n.children.reduce((acc,c)=>acc+sum(c), 0);
+    return n.value;
+  })(root);
+
+  const leaves = collectLeaves(root).sort((a,b)=>b.value-a.value);
+
+  const W=900,H=520;
+  const pad = {l:18,r:18,t:18,b:18};
+  const x0=pad.l, y0=pad.t, w=W-pad.l-pad.r, h=H-pad.t-pad.b;
+
+  svg.appendChild(el("rect",{x:x0,y:y0,width:w,height:h,rx:"16",ry:"16",
+    fill:"rgba(0,0,0,.12)",stroke:"rgba(255,255,255,.14)","stroke-width":"1"}));
+
+  const rects = squarify(leaves.map(l=>({node:l, value:l.value})), x0, y0, w, h);
+
+  const vizDiv = svg.closest(".viz");
+  const tipItems = [];
+
+  rects.forEach((r, i)=>{
+    const hue = (i*37)%360;
+    const fill = `hsla(${hue}, 85%, 70%, .18)`;
+    const stroke = `hsla(${hue}, 90%, 70%, .45)`;
+
+    const rr = el("rect",{
+      x:r.x+2,y:r.y+2,width:Math.max(0,r.w-4),height:Math.max(0,r.h-4),
+      rx:"14",ry:"14", fill, stroke, "stroke-width":"2"
+    });
+    svg.appendChild(rr);
+
+    if(r.w > 120 && r.h > 46){
+      const label = (r.node.__path || r.node.name);
+      const t1 = el("text",{x:r.x+12,y:r.y+26,fill:"rgba(255,255,255,.86)","font-size":"12","font-weight":"900","font-family":"ui-sans-serif, system-ui"});
+      t1.appendChild(document.createTextNode(truncate(label, 26)));
+      svg.appendChild(t1);
+
+      const t2 = el("text",{x:r.x+12,y:r.y+44,fill:"rgba(255,255,255,.62)","font-size":"11","font-weight":"800","font-family":"ui-sans-serif, system-ui"});
+      t2.appendChild(document.createTextNode("value: " + r.node.value));
+      svg.appendChild(t2);
+    }
+
+    tipItems.push({
+      node: rr,
+      data: r.node,
+      format:(n)=>`<strong>${escapeHtml(n.__path || n.name)}</strong><div class="muted">value: <b>${n.value}</b></div>`
+    });
+  });
+
+  attachTip(vizDiv, tip, tipItems);
+  drawLabel(svg, x0+10, y0+22, "Treemap", 12, 0.7);
+}
+
+/* ===========================
+   GeoJSON basemap drawing
+   =========================== */
+function drawGeoJSON(svg, geo, bounds){
+  const {x0,y0,w,h} = bounds;
+
+  // Style layers
+  const landFill = "rgba(255,255,255,.08)";
+  const landStroke = "rgba(255,255,255,.16)";
+
+  const g = el("g", {});
+
+  // clipping to rounded rect
+  const clipId = "clipMap";
+  const defs = el("defs");
+  const clip = el("clipPath",{id:clipId});
+  clip.appendChild(el("rect",{x:x0,y:y0,width:w,height:h,rx:"16",ry:"16"}));
+  defs.appendChild(clip);
+  svg.appendChild(defs);
+
+  const land = el("g", {"clip-path":`url(#${clipId})`});
+
+  // Accept FeatureCollection / Feature / Geometry
+  const features = geo?.type === "FeatureCollection"
+    ? geo.features
+    : (geo?.type === "Feature" ? [geo] : [{type:"Feature", geometry: geo, properties:{}}]);
+
+  for(const f of (features || [])){
+    const geom = f?.geometry;
+    if(!geom) continue;
+    drawGeometry(land, geom, bounds, landFill, landStroke);
+  }
+
+  // subtle vignette edge
+  land.appendChild(el("rect",{x:x0,y:y0,width:w,height:h,rx:"16",ry:"16",
+    fill:"none",stroke:"rgba(255,255,255,.12)","stroke-width":"1"}));
+
+  svg.appendChild(land);
+}
+
+function drawGeometry(parent, geom, bounds, fill, stroke){
+  const t = geom.type;
+  if(t === "Polygon"){
+    parent.appendChild(pathFromPolygon(geom.coordinates, bounds, fill, stroke));
+  }else if(t === "MultiPolygon"){
+    for(const poly of geom.coordinates){
+      parent.appendChild(pathFromPolygon(poly, bounds, fill, stroke));
+    }
+  }else if(t === "LineString"){
+    parent.appendChild(pathFromLine(geom.coordinates, bounds, "none", "rgba(255,255,255,.14)", 1.2));
+  }else if(t === "MultiLineString"){
+    for(const ln of geom.coordinates){
+      parent.appendChild(pathFromLine(ln, bounds, "none", "rgba(255,255,255,.14)", 1.2));
+    }
+  }
+}
+
+function projectLonLat(lon, lat, bounds){
+  const {x0,y0,w,h} = bounds;
+  const x = x0 + ((lon + 180) / 360) * w;
+  const y = y0 + h - ((lat + 90) / 180) * h;
+  return [x,y];
+}
+
+function pathFromPolygon(rings, bounds, fill, stroke){
+  let d = "";
+  for(const ring of rings){
+    ring.forEach((p, i) => {
+      const [lon,lat] = p;
+      const [x,y] = projectLonLat(lon,lat,bounds);
+      d += (i===0 ? `M ${x} ${y}` : ` L ${x} ${y}`);
+    });
+    d += " Z ";
+  }
+  return el("path",{
+    d,
+    fill,
+    stroke,
+    "stroke-width":"1.2",
+    "stroke-linejoin":"round"
+  });
+}
+
+function pathFromLine(line, bounds, fill, stroke, sw){
+  let d = "";
+  line.forEach((p,i)=>{
+    const [lon,lat] = p;
+    const [x,y] = projectLonLat(lon,lat,bounds);
+    d += (i===0 ? `M ${x} ${y}` : ` L ${x} ${y}`);
+  });
+  return el("path",{d, fill, stroke, "stroke-width":String(sw), "stroke-linecap":"round", "stroke-linejoin":"round"});
+}
+
+/* A very lightweight, stylized world basemap as GeoJSON (offline).
+   If you want a precise map: use “Tuo GeoJSON-kartta” (e.g. Natural Earth / GADM / your own). */
+function makeStylizedWorldBasemapGeoJSON(){
+  return {
+    type:"FeatureCollection",
+    features:[
+      // Rough Eurasia + Africa
+      {type:"Feature", properties:{name:"EurasiaAfrica"}, geometry:{type:"Polygon", coordinates:[[
+        [-11, 36],[ -5, 50],[ 10, 60],[ 35, 70],[ 70, 72],[ 105, 65],[ 130, 55],[ 150, 50],
+        [ 170, 60],[ 180, 58],[ 180, 40],[ 160, 35],[ 135, 30],[ 120, 20],[ 110, 10],[ 100, 5],
+        [ 85, 10],[ 70, 20],[ 55, 15],[ 40, 5],[ 35,-5],[ 25,-20],[ 15,-30],[ 5,-35],[-5,-30],[-15,-10],[-11, 10],[-11,36]
+      ]]}},
+      // Rough North America
+      {type:"Feature", properties:{name:"NorthAmerica"}, geometry:{type:"Polygon", coordinates:[[
+        [-168, 15],[-155, 55],[-130, 72],[-105, 72],[-85, 60],[-65, 50],[-55, 40],[-60, 25],
+        [-80, 18],[-110, 15],[-140, 12],[-168, 15]
+      ]]}},
+      // Rough South America
+      {type:"Feature", properties:{name:"SouthAmerica"}, geometry:{type:"Polygon", coordinates:[[
+        [-82, 12],[-70, 8],[-55, 0],[-50,-15],[-55,-35],[-65,-52],[-75,-55],[-80,-30],[-82, 12]
+      ]]}},
+      // Rough Australia
+      {type:"Feature", properties:{name:"Australia"}, geometry:{type:"Polygon", coordinates:[[
+        [110,-10],[115,-25],[125,-35],[140,-40],[155,-30],[155,-15],[145,-10],[130,-10],[110,-10]
+      ]]}},
+      // Greenland (rough)
+      {type:"Feature", properties:{name:"Greenland"}, geometry:{type:"Polygon", coordinates:[[
+        [-60, 60],[-50, 75],[-35, 80],[-20, 72],[-25, 62],[-40, 58],[-60, 60]
+      ]]}},
+      // Antarctica hint
+      {type:"Feature", properties:{name:"Antarctica"}, geometry:{type:"Polygon", coordinates:[[
+        [-180,-60],[-120,-70],[-60,-72],[0,-74],[60,-72],[120,-70],[180,-60],[180,-90],[-180,-90],[-180,-60]
+      ]]}}
+    ]
+  };
+}
+
+/* ===========================
+   Treemap helpers
+   =========================== */
+function collectLeaves(root){
+  const leaves = [];
+  function walk(n, path){
+    const here = path ? (path + "/" + n.name) : n.name;
+    n.__path = here === "root" ? "" : here;
+    if(!n.children.length){ leaves.push(n); return; }
+    n.children.forEach(c => walk(c, here === "root" ? "" : here));
+  }
+  walk(root, "");
+  return leaves.filter(n => n.value > 0);
+}
+function squarify(items, x, y, w, h){
+  const total = items.reduce((a,b)=>a+b.value,0);
+  if(total <= 0) return [];
+  const area = w*h;
+  items = items.map(it => ({...it, area: it.value/total*area}));
+
+  const out = [];
+  let row = [];
+  let curX=x, curY=y, curW=w, curH=h;
+
+  function worst(row, side){
+    if(row.length===0) return Infinity;
+    const sum = row.reduce((a,b)=>a+b.area,0);
+    const max = Math.max(...row.map(r=>r.area));
+    const min = Math.min(...row.map(r=>r.area));
+    const s2 = side*side;
+    return Math.max((s2*max)/(sum*sum), (sum*sum)/(s2*min));
+  }
+  function layoutRow(row, x, y, w, h, horizontal){
+    const sum = row.reduce((a,b)=>a+b.area,0);
+    if(horizontal){
+      const rowH = sum / w;
+      let cx = x;
+      row.forEach(r=>{
+        const rw = r.area / rowH;
+        out.push({x:cx,y:y,w:rw,h:rowH,node:r.node});
+        cx += rw;
+      });
+      return {x, y:y+rowH, w, h:h-rowH};
+    }else{
+      const rowW = sum / h;
+      let cy = y;
+      row.forEach(r=>{
+        const rh = r.area / rowW;
+        out.push({x:x,y:cy,w:rowW,h:rh,node:r.node});
+        cy += rh;
+      });
+      return {x:x+rowW, y, w:w-rowW, h};
+    }
+  }
+
+  let i=0;
+  while(i < items.length){
+    const item = items[i];
+    const newRow = row.concat([item]);
+    const horizontal = curW >= curH;
+    const side = horizontal ? curH : curW;
+    if(row.length===0 || worst(newRow, side) <= worst(row, side)){
+      row = newRow;
+      i++;
+    }else{
+      const next = layoutRow(row, curX, curY, curW, curH, horizontal);
+      curX = next.x; curY = next.y; curW = next.w; curH = next.h;
+      row = [];
+    }
+  }
+  if(row.length){
+    const horizontal = curW >= curH;
+    layoutRow(row, curX, curY, curW, curH, horizontal);
+  }
+  return out;
+}
+
+/* ===========================
+   Utilities
+   =========================== */
+function anyKey(obj, keys){
+  for(const k of keys){ if(k in obj) return obj[k]; }
+  // also accept case-insensitive match
+  const lower = Object.fromEntries(Object.keys(obj).map(k=>[k.toLowerCase(), k]));
+  for(const k of keys){
+    const kk = lower[String(k).toLowerCase()];
+    if(kk) return obj[kk];
+  }
+  return undefined;
+}
+function toNum(v){
+  if(v === null || v === undefined) return NaN;
+  const s = String(v).trim().replace(",", ".");
+  const n = Number(s);
+  return Number.isFinite(n) ? n : NaN;
+}
+function parseDate(v){
+  if(v === null || v === undefined) return NaN;
+  const s = String(v).trim();
+  if(!s) return NaN;
+  const num = Number(s);
+  if(Number.isFinite(num) && /^\d{10,}$/.test(s)) return num;
+  const t = Date.parse(s);
+  return Number.isFinite(t) ? t : NaN;
+}
+function fmtDate(ms){
+  try{
+    const d = new Date(ms);
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,"0");
+    const day = String(d.getDate()).padStart(2,"0");
+    return `${y}-${m}-${day}`;
+  }catch{ return String(ms); }
+}
+function truncate(s, n){ s=String(s); return s.length>n ? s.slice(0,n-1)+"…" : s; }
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+  }[c]));
+}
+
+/* File / download helpers */
+function downloadBlob(text, filename, mime){
+  const blob = new Blob([text], {type:mime});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+function pickFile({accept}){
+  return new Promise(resolve => {
+    const input = document.createElement("input");
+    input.type = "file";
+    if(accept) input.accept = accept;
+    input.onchange = () => resolve(input.files?.[0] || null);
+    input.click();
+  });
+}
+</script>
+</body>
+</html>

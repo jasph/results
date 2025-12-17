@@ -1,0 +1,734 @@
+<!doctype html>
+<html lang="fi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Project data – Offline-lomake</title>
+  <style>
+    :root{
+      --bg:#0b1220; --card:#0f1a33; --text:#eaf0ff; --muted:#a9b7dd;
+      --line:rgba(255,255,255,.10); --accent:#7c5cff; --good:#22c55e; --danger:#ef4444;
+      --shadow: 0 16px 45px rgba(0,0,0,.35); --radius:18px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      background: radial-gradient(1200px 600px at 20% 0%, rgba(124,92,255,.25), transparent 55%),
+                  radial-gradient(1200px 600px at 80% 10%, rgba(34,197,94,.20), transparent 55%),
+                  var(--bg);
+      color:var(--text);
+      font: 14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+    .wrap{max-width:1200px;margin:28px auto;padding:0 16px 36px}
+    .topbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:16px}
+    .brand{display:flex;gap:12px;align-items:center}
+    .logo{width:42px;height:42px;border-radius:14px;background: linear-gradient(135deg, rgba(124,92,255,1), rgba(34,197,94,1));box-shadow: 0 10px 25px rgba(124,92,255,.25)}
+    h1{margin:0;font-size:18px;letter-spacing:.2px}
+    .subtitle{margin:2px 0 0;color:var(--muted);font-size:12px}
+    .pill{display:inline-flex;gap:8px;align-items:center;border:1px solid var(--line);background: rgba(255,255,255,.03);padding:8px 10px;border-radius:999px;color:var(--muted);user-select:none}
+    .grid{display:grid;grid-template-columns: 1.25fr .75fr;gap:16px}
+    @media (max-width: 980px){ .grid{grid-template-columns:1fr} }
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+      border:1px solid var(--line); border-radius:var(--radius);
+      box-shadow: var(--shadow); overflow:hidden;
+    }
+    .card .hd{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px;background: rgba(0,0,0,.12)}
+    .card .hd h2{margin:0;font-size:14px}
+    .card .bd{padding:16px}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media (max-width: 680px){ .row{grid-template-columns:1fr} }
+    label{display:block;color:var(--muted);font-size:12px;margin:0 0 6px}
+    input, select, textarea{
+      width:100%;
+      background: rgba(0,0,0,.22);
+      border:1px solid var(--line);
+      color:var(--text);
+      border-radius:14px;
+      padding:10px 12px;
+      outline:none;
+    }
+    textarea{min-height:90px;resize:vertical}
+    input:focus, select:focus, textarea:focus{border-color: rgba(124,92,255,.65); box-shadow: 0 0 0 3px rgba(124,92,255,.18)}
+    .hint{color:var(--muted);font-size:12px;margin-top:6px}
+    .actions{display:flex;flex-wrap:wrap;gap:10px}
+    button{
+      border:1px solid var(--line); background: rgba(255,255,255,.05);
+      color:var(--text); padding:10px 12px; border-radius:14px; cursor:pointer;
+      transition: transform .06s ease, border-color .2s ease, background .2s ease; user-select:none;
+    }
+    button:hover{border-color: rgba(255,255,255,.22); background: rgba(255,255,255,.08)}
+    button:active{transform: translateY(1px)}
+    .primary{background: linear-gradient(135deg, rgba(124,92,255,.95), rgba(124,92,255,.65)); border-color: rgba(124,92,255,.35)}
+    .good{background: linear-gradient(135deg, rgba(34,197,94,.9), rgba(34,197,94,.55)); border-color: rgba(34,197,94,.35)}
+    .danger{background: linear-gradient(135deg, rgba(239,68,68,.9), rgba(239,68,68,.55)); border-color: rgba(239,68,68,.35)}
+    .ghost{background: transparent}
+    .mini{padding:8px 10px;border-radius:12px;font-size:12px}
+    .tablewrap{overflow:auto;border-radius:16px;border:1px solid var(--line)}
+    table{width:100%;border-collapse:collapse;min-width:1300px;background: rgba(0,0,0,.14)}
+    th, td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+    th{color:var(--muted);font-size:12px;text-align:left;background: rgba(0,0,0,.2);position:sticky;top:0}
+    tr:hover td{background: rgba(255,255,255,.03)}
+    .toast{
+      position:fixed;left:50%;bottom:18px;transform:translateX(-50%);
+      background: rgba(8,12,24,.92); border:1px solid var(--line); color:var(--text);
+      padding:10px 12px;border-radius:14px; box-shadow: 0 18px 50px rgba(0,0,0,.45);
+      max-width: 92vw; display:none;
+    }
+    code.k{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size:12px;color:#dbe4ff;background: rgba(255,255,255,.06);
+      border:1px solid var(--line); padding:2px 6px;border-radius:10px;
+    }
+    .split{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+    .file{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    input[type="file"]{padding:8px;background:transparent}
+    .muted{color:var(--muted)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <h1>Project data – Offline-lomake</h1>
+          <div class="subtitle">Ei verkkoa • Ei localStoragea • Data vain muistissa sivun aukiolon ajan</div>
+        </div>
+      </div>
+      <div class="pill">
+        <span>📦</span><span>Export: <code class="k">CSV</code> + <code class="k">XML</code> • Import: CSV/XML</span>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- FORM -->
+      <div class="card">
+        <div class="hd">
+          <h2>Syötä projektirivi</h2>
+          <div class="actions">
+            <button class="mini ghost" id="btnClear">Tyhjennä</button>
+            <button class="mini primary" id="btnAdd">Lisää listaan</button>
+          </div>
+        </div>
+        <div class="bd" id="formContainer">
+          <!-- generated -->
+        </div>
+      </div>
+
+      <!-- SIDE -->
+      <div class="card">
+        <div class="hd"><h2>Tuonti / vienti</h2></div>
+        <div class="bd">
+          <div class="muted" style="font-size:13px">
+            <div><strong>CSV</strong>: suorat sarakkeet kuten tässä työkalussa.</div>
+            <div><strong>XML</strong>: <code class="k">&lt;projects&gt;&lt;project&gt;...&lt;/project&gt;&lt;/projects&gt;</code> ja jokainen kenttä on oma elementti.</div>
+          </div>
+
+          <div style="height:12px"></div>
+
+          <div class="actions">
+            <button class="good" id="btnExportCSV">Export CSV</button>
+            <button class="good" id="btnExportXML">Export XML</button>
+            <button class="danger" id="btnClearAll">Tyhjennä lista</button>
+          </div>
+
+          <div style="height:14px"></div>
+          <div class="card" style="box-shadow:none">
+            <div class="hd"><h2>Import tiedosto</h2></div>
+            <div class="bd">
+              <div class="file">
+                <input type="file" id="fileInput" accept=".xml,.csv,text/xml,text/csv" />
+                <button class="mini primary" id="btnImport">Import</button>
+              </div>
+              <div class="hint">Tukee tämän työkalun CSV:tä sekä XML:ää muodossa <code class="k">projects/project</code>.</div>
+            </div>
+          </div>
+
+          <div style="height:14px"></div>
+          <div class="card" style="box-shadow:none">
+            <div class="hd"><h2>Nopeasti</h2></div>
+            <div class="bd muted">
+              • Kaikki tiedot säilyvät vain RAM-muistissa.<br/>
+              • Export lataa tiedoston koneellesi.<br/>
+              • Import lisää rivejä nykyiseen listaan.
+            </div>
+          </div>
+
+          <div style="height:14px"></div>
+          <div class="actions">
+            <button class="mini ghost" id="btnSample">Täytä esimerkkirivillä</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="height:16px"></div>
+
+    <!-- TABLE -->
+    <div class="card">
+      <div class="hd">
+        <h2>Projektit (taulukko)</h2>
+        <div class="muted" id="countHint"></div>
+      </div>
+      <div class="bd">
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr id="theadRow"></tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  // --------- Schema (exact columns as requested) ----------
+  const FIELDS = [
+    { key:"Old project code", label:"Old project code", type:"text" },
+    { key:"Valid project code", label:"Valid project code", type:"text", required:true },
+    { key:"Project name in Finnish", label:"Project name in Finnish", type:"text", required:true },
+    { key:"Project name in English", label:"Project name in English", type:"text" },
+    { key:"Recipient country or area, name", label:"Recipient country or area, name", type:"text", required:true },
+    { key:"Recipient country code", label:"Recipient country code", type:"text", required:true, placeholder:"FI" },
+    { key:"Initial year", label:"Initial year", type:"number", placeholder:"2022" },
+
+    { key:"Commitments of first financial year (2022), EUR", label:"Commitments (2022), EUR", type:"number" },
+    { key:"Commitments of second financial year (2023), EUR", label:"Commitments (2023), EUR", type:"number" },
+    { key:"Commitments of third financial year (2024), EUR", label:"Commitments (2024), EUR", type:"number" },
+    { key:"Commitments of fourth financial year (2025), EUR", label:"Commitments (2025), EUR", type:"number" },
+
+    { key:"Disbursements in first financial year (2022), EUR", label:"Disbursements (2022), EUR", type:"number" },
+    { key:"Disbursements in second financial year (2023), EUR", label:"Disbursements (2023), EUR", type:"number" },
+    { key:"Disbursements in third financial year (2024), EUR", label:"Disbursements (2024), EUR", type:"number" },
+    { key:"Disbursements in fourth financial year (2025), EUR", label:"Disbursements (2025), EUR", type:"number" },
+
+    { key:"Purpose code 1", label:"Purpose code 1", type:"text" },
+    { key:"Percentage 1", label:"Percentage 1", type:"number", placeholder:"100" },
+    { key:"Purpose code 2", label:"Purpose code 2", type:"text" },
+    { key:"Percentage 2", label:"Percentage 2", type:"number" },
+    { key:"Purpose code 3", label:"Purpose code 3", type:"text" },
+    { key:"Percentage 3", label:"Percentage 3", type:"number" },
+
+    { key:"Project description in Finnish", label:"Project description in Finnish", type:"textarea" },
+    { key:"Project description in English", label:"Project description in English", type:"textarea" },
+
+    { key:"Policy objective= Gender equality", label:"Policy objective= Gender equality", type:"select01" },
+    { key:"Policy objective= Aid to environment", label:"Policy objective= Aid to environment", type:"select01" },
+    { key:"Policy objective= Participatory development/ Good governance", label:"Policy objective= Participatory development/ Good governance", type:"select01" },
+    { key:"Policy objective= Trade development", label:"Policy objective= Trade development", type:"select01" },
+    { key:"Policy objective= Biodiversity", label:"Policy objective= Biodiversity", type:"select01" },
+    { key:"Biodiversity %", label:"Biodiversity %", type:"number" },
+    { key:"Policy objective= Climate change mitigation", label:"Policy objective= Climate change mitigation", type:"select01" },
+    { key:"Climate change - mitigation %", label:"Climate change - mitigation %", type:"number" },
+    { key:"Policy objective= Climate change adaptation", label:"Policy objective= Climate change adaptation", type:"select01" },
+    { key:"Climate change - adaptation %", label:"Climate change - adaptation %", type:"number" },
+    { key:"Policy objective= Desertification", label:"Policy objective= Desertification", type:"select01" },
+    { key:"Desertification %", label:"Desertification %", type:"number" },
+    { key:"Policy objective= RMNCH", label:"Policy objective= RMNCH", type:"select01" },
+
+    { key:"Free-standing technical co-operation", label:"Free-standing technical co-operation", type:"select01" },
+
+    { key:"Geographical target area", label:"Geographical target area", type:"text" },
+    { key:"Implementing agency", label:"Implementing agency", type:"text" },
+    { key:"SDG target", label:"SDG target", type:"text", placeholder:"e.g. 13.1" },
+
+    { key:"Policy objective= Disaster Risk Reduction", label:"Policy objective= Disaster Risk Reduction", type:"select01" },
+    { key:"Policy objective= Inclusion and empowerment of persons with disabilities", label:"Policy objective= Inclusion and empowerment of persons with disabilities", type:"select01" },
+    { key:"Policy objective= Nutrition", label:"Policy objective= Nutrition", type:"select01" },
+
+    { key:"Keywords", label:"Keywords", type:"text", placeholder:"comma,separated,keywords" },
+  ];
+
+  // In-memory only
+  const rows = [];
+
+  const $ = (id) => document.getElementById(id);
+
+  function toast(msg){
+    const t = $("toast");
+    t.textContent = msg;
+    t.style.display = "block";
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => t.style.display = "none", 2400);
+  }
+
+  function safeTrim(v){ return (v ?? "").toString().trim(); }
+
+  function fieldId(key){
+    // stable id
+    return "f_" + key.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_+|_+$/g,"");
+  }
+
+  function escXml(s){
+    return (s ?? "").toString()
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&apos;");
+  }
+
+  function buildForm(){
+    const container = $("formContainer");
+    container.innerHTML = "";
+
+    // Render in sections for readability
+    const sections = [
+      { title:"Perustiedot", keys:[
+        "Old project code","Valid project code","Project name in Finnish","Project name in English",
+        "Recipient country or area, name","Recipient country code","Initial year"
+      ]},
+      { title:"Commitments (EUR)", keys:[
+        "Commitments of first financial year (2022), EUR",
+        "Commitments of second financial year (2023), EUR",
+        "Commitments of third financial year (2024), EUR",
+        "Commitments of fourth financial year (2025), EUR"
+      ]},
+      { title:"Disbursements (EUR)", keys:[
+        "Disbursements in first financial year (2022), EUR",
+        "Disbursements in second financial year (2023), EUR",
+        "Disbursements in third financial year (2024), EUR",
+        "Disbursements in fourth financial year (2025), EUR"
+      ]},
+      { title:"Purpose codes", keys:[
+        "Purpose code 1","Percentage 1","Purpose code 2","Percentage 2","Purpose code 3","Percentage 3"
+      ]},
+      { title:"Kuvaukset", keys:[
+        "Project description in Finnish","Project description in English"
+      ]},
+      { title:"Policy objectives & %", keys:[
+        "Policy objective= Gender equality",
+        "Policy objective= Aid to environment",
+        "Policy objective= Participatory development/ Good governance",
+        "Policy objective= Trade development",
+        "Policy objective= Biodiversity","Biodiversity %",
+        "Policy objective= Climate change mitigation","Climate change - mitigation %",
+        "Policy objective= Climate change adaptation","Climate change - adaptation %",
+        "Policy objective= Desertification","Desertification %",
+        "Policy objective= RMNCH",
+        "Free-standing technical co-operation",
+        "Policy objective= Disaster Risk Reduction",
+        "Policy objective= Inclusion and empowerment of persons with disabilities",
+        "Policy objective= Nutrition"
+      ]},
+      { title:"Muut", keys:[
+        "Geographical target area","Implementing agency","SDG target","Keywords"
+      ]},
+    ];
+
+    for(const sec of sections){
+      const card = document.createElement("div");
+      card.className = "card";
+      card.style.boxShadow = "none";
+      card.style.marginBottom = "12px";
+      card.innerHTML = `<div class="hd"><h2>${sec.title}</h2></div><div class="bd"></div>`;
+      const bd = card.querySelector(".bd");
+
+      // build rows (2 columns)
+      for(let i=0;i<sec.keys.length;i+=2){
+        const row = document.createElement("div");
+        row.className = "row";
+        const keys = [sec.keys[i], sec.keys[i+1]].filter(Boolean);
+        for(const k of keys){
+          const f = FIELDS.find(x => x.key === k);
+          const id = fieldId(f.key);
+
+          const wrap = document.createElement("div");
+          const req = f.required ? " *" : "";
+          const ph = f.placeholder ? ` placeholder="${escXml(f.placeholder)}"` : "";
+
+          let inputHtml = "";
+          if(f.type === "textarea"){
+            inputHtml = `<textarea id="${id}"${ph}></textarea>`;
+          }else if(f.type === "select01"){
+            inputHtml = `
+              <select id="${id}">
+                <option value="">(ei aseteta)</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+              </select>`;
+          }else{
+            const type = (f.type === "number") ? "number" : "text";
+            inputHtml = `<input id="${id}" type="${type}"${ph} />`;
+          }
+
+          wrap.innerHTML = `<label for="${id}">${escXml(f.label)}${req}</label>${inputHtml}`;
+          row.appendChild(wrap);
+        }
+        bd.appendChild(row);
+        bd.appendChild(spacer(12));
+      }
+
+      container.appendChild(card);
+    }
+
+    const hint = document.createElement("div");
+    hint.className = "hint";
+    hint.innerHTML = `Pakolliset kentät: <code class="k">Valid project code</code>, <code class="k">Project name in Finnish</code>, <code class="k">Recipient country or area, name</code>, <code class="k">Recipient country code</code>.`;
+    container.appendChild(hint);
+  }
+
+  function spacer(h){
+    const d = document.createElement("div");
+    d.style.height = (h||10) + "px";
+    return d;
+  }
+
+  function clearForm(){
+    for(const f of FIELDS){
+      const el = $(fieldId(f.key));
+      if(!el) continue;
+      el.value = "";
+    }
+  }
+
+  function validateForm(){
+    const required = FIELDS.filter(f => f.required);
+    const missing = [];
+    for(const f of required){
+      const v = safeTrim($(fieldId(f.key))?.value);
+      if(!v) missing.push(f.key);
+    }
+    if(missing.length){
+      toast("Puuttuu pakollisia: " + missing.join(", "));
+      return false;
+    }
+    return true;
+  }
+
+  function readFormRow(){
+    const obj = {};
+    for(const f of FIELDS){
+      const el = $(fieldId(f.key));
+      obj[f.key] = safeTrim(el?.value);
+    }
+    return obj;
+  }
+
+  function loadRowToForm(obj){
+    clearForm();
+    for(const f of FIELDS){
+      const el = $(fieldId(f.key));
+      if(!el) continue;
+      el.value = obj[f.key] ?? "";
+    }
+  }
+
+  function renderTable(){
+    const thead = $("theadRow");
+    const tbody = $("tbody");
+    thead.innerHTML = "";
+    tbody.innerHTML = "";
+
+    // header: index + all fields + actions
+    const th1 = document.createElement("th"); th1.textContent = "#"; thead.appendChild(th1);
+    for(const f of FIELDS){
+      const th = document.createElement("th");
+      th.textContent = f.key;
+      thead.appendChild(th);
+    }
+    const thA = document.createElement("th"); thA.textContent = "Toiminnot"; thead.appendChild(thA);
+
+    rows.forEach((r, idx) => {
+      const tr = document.createElement("tr");
+      tr.appendChild(tdText(String(idx+1)));
+
+      for(const f of FIELDS){
+        const val = (r[f.key] ?? "");
+        const td = document.createElement("td");
+        // keep long text readable
+        if(f.type === "textarea"){
+          td.innerHTML = `<div style="max-width:420px; white-space:pre-wrap">${escapeHtml(val)}</div>`;
+        }else{
+          td.textContent = val;
+        }
+        tr.appendChild(td);
+      }
+
+      const tda = document.createElement("td");
+      tda.innerHTML = `
+        <div class="actions">
+          <button class="mini ghost" data-act="load" data-i="${idx}">Lataa</button>
+          <button class="mini danger" data-act="del" data-i="${idx}">Poista</button>
+        </div>`;
+      tr.appendChild(tda);
+      tbody.appendChild(tr);
+    });
+
+    $("countHint").textContent = `Listassa ${rows.length} rivi(ä).`;
+
+    tbody.querySelectorAll("button[data-act]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const i = Number(btn.getAttribute("data-i"));
+        const act = btn.getAttribute("data-act");
+        if(act === "del"){
+          rows.splice(i,1);
+          renderTable();
+          toast("Poistettu.");
+        }else if(act === "load"){
+          loadRowToForm(rows[i]);
+          toast("Ladattu lomakkeeseen.");
+        }
+      });
+    });
+  }
+
+  function tdText(s){ const td = document.createElement("td"); td.textContent = s; return td; }
+
+  function escapeHtml(str){
+    return (str ?? "").toString()
+      .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;").replaceAll("'","&#039;");
+  }
+
+  // -------- CSV Export/Import (exact headers = FIELDS keys) --------
+  function csvCell(v){
+    const s = (v ?? "").toString();
+    const needs = /[",\n\r]/.test(s);
+    const q = s.replaceAll('"','""');
+    return needs ? `"${q}"` : q;
+  }
+
+  function exportCSV(){
+    if(!rows.length){ toast("Ei mitään exportattavaa."); return; }
+    const headers = FIELDS.map(f => f.key);
+    const lines = [];
+    lines.push(headers.map(csvCell).join(","));
+    for(const r of rows){
+      lines.push(headers.map(h => csvCell(r[h] ?? "")).join(","));
+    }
+    const csv = lines.join("\n") + "\n";
+    downloadText("projects.csv", csv, "text/csv");
+    toast("CSV export valmis.");
+  }
+
+  function splitCsvLines(text){
+    const lines = [];
+    let cur = "";
+    let inQ = false;
+    for(let i=0;i<text.length;i++){
+      const ch = text[i], next = text[i+1];
+      if(ch === '"'){
+        if(inQ && next === '"'){ cur += '"'; i++; }
+        else inQ = !inQ;
+        continue;
+      }
+      if((ch === "\n" || ch === "\r") && !inQ){
+        if(ch === "\r" && next === "\n") i++;
+        lines.push(cur); cur = "";
+        continue;
+      }
+      cur += ch;
+    }
+    if(cur.length) lines.push(cur);
+    return lines;
+  }
+
+  function parseCsvLine(line){
+    const out = [];
+    let cur = "";
+    let inQ = false;
+    for(let i=0;i<line.length;i++){
+      const ch = line[i], next = line[i+1];
+      if(ch === '"'){
+        if(inQ && next === '"'){ cur += '"'; i++; }
+        else inQ = !inQ;
+        continue;
+      }
+      if(ch === "," && !inQ){ out.push(cur); cur = ""; continue; }
+      cur += ch;
+    }
+    out.push(cur);
+    return out;
+  }
+
+  function importFromCSV(csvText){
+    const lines = splitCsvLines(csvText.trim());
+    if(lines.length < 2) throw new Error("CSV ei sisällä dataa.");
+    const headers = parseCsvLine(lines[0]).map(h => h.trim());
+    const needed = FIELDS.map(f => f.key);
+
+    // allow extra columns but require all needed
+    for(const h of needed){
+      if(headers.indexOf(h) === -1) throw new Error("CSV puuttuu sarake: " + h);
+    }
+
+    let added = 0;
+    for(let i=1;i<lines.length;i++){
+      const row = parseCsvLine(lines[i]);
+      if(row.every(c => !c)) continue;
+      const obj = {};
+      for(const f of FIELDS){
+        const j = headers.indexOf(f.key);
+        obj[f.key] = row[j] ?? "";
+      }
+      // basic sanity: require valid project code or skip
+      if(safeTrim(obj["Valid project code"])){
+        rows.push(obj);
+        added++;
+      }
+    }
+    return added;
+  }
+
+  // -------- XML Export/Import --------
+  // XML format:
+  // <projects>
+  //   <project>
+  //     <field key="Old project code">...</field> ... OR as elements.
+  // We'll use elements with safe tag names based on keys for readability.
+  function tagNameForKey(key){
+    // stable: e.g. "Recipient country code" -> recipient_country_code
+    return key.toLowerCase()
+      .replace(/[%=]/g, "")
+      .replace(/[(),]/g, "")
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g,"");
+  }
+
+  function exportXML(){
+    if(!rows.length){ toast("Ei mitään exportattavaa."); return; }
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<projects>\n`;
+    for(const r of rows){
+      xml += `  <project>\n`;
+      for(const f of FIELDS){
+        const tag = tagNameForKey(f.key);
+        const val = escXml(r[f.key] ?? "");
+        xml += `    <${tag}>${val}</${tag}>\n`;
+      }
+      xml += `  </project>\n`;
+    }
+    xml += `</projects>\n`;
+    downloadText("projects.xml", xml, "application/xml");
+    toast("XML export valmis.");
+  }
+
+  function importFromXML(xmlText){
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xmlText, "application/xml");
+    const err = doc.querySelector("parsererror");
+    if(err) throw new Error("XML ei ole kelvollinen.");
+
+    const projects = Array.from(doc.getElementsByTagName("project"));
+    if(!projects.length) throw new Error("Ei löytynyt <project> elementtejä.");
+
+    // Accept our element-tag format; map tags back to keys
+    const tagToKey = new Map(FIELDS.map(f => [tagNameForKey(f.key), f.key]));
+
+    let added = 0;
+    for(const p of projects){
+      const obj = {};
+      for(const f of FIELDS) obj[f.key] = "";
+
+      // iterate element children
+      for(const child of Array.from(p.children)){
+        const tag = child.tagName;
+        const key = tagToKey.get(tag);
+        if(key) obj[key] = (child.textContent ?? "").trim();
+      }
+
+      if(safeTrim(obj["Valid project code"])){
+        rows.push(obj);
+        added++;
+      }
+    }
+    return added;
+  }
+
+  function downloadText(filename, text, mime){
+    const blob = new Blob([text], {type: mime});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function importFile(){
+    const file = $("fileInput").files?.[0];
+    if(!file){ toast("Valitse .xml tai .csv."); return; }
+    const text = await file.text();
+    const name = (file.name || "").toLowerCase();
+    try{
+      let added = 0;
+      if(name.endsWith(".xml") || text.trim().startsWith("<")){
+        added = importFromXML(text);
+        toast(`Import: XML → lisätty ${added} rivi(ä).`);
+      }else{
+        added = importFromCSV(text);
+        toast(`Import: CSV → lisätty ${added} rivi(ä).`);
+      }
+      renderTable();
+    }catch(e){
+      console.error(e);
+      toast("Import epäonnistui: " + (e?.message || e));
+    }
+  }
+
+  // -------- UI hooks --------
+  $("btnAdd").addEventListener("click", () => {
+    if(!validateForm()) return;
+    rows.push(readFormRow());
+    renderTable();
+    toast("Lisätty listaan.");
+  });
+
+  $("btnClear").addEventListener("click", () => { clearForm(); toast("Lomake tyhjennetty."); });
+  $("btnClearAll").addEventListener("click", () => { rows.splice(0, rows.length); renderTable(); toast("Lista tyhjennetty."); });
+
+  $("btnExportCSV").addEventListener("click", exportCSV);
+  $("btnExportXML").addEventListener("click", exportXML);
+  $("btnImport").addEventListener("click", importFile);
+
+  $("btnSample").addEventListener("click", () => {
+    clearForm();
+    set("Valid project code","FIN-2022-0001");
+    set("Project name in Finnish","Esimerkkihanke");
+    set("Project name in English","Example project");
+    set("Recipient country or area, name","Finland");
+    set("Recipient country code","FI");
+    set("Initial year","2022");
+
+    set("Commitments of first financial year (2022), EUR","1000000");
+    set("Commitments of second financial year (2023), EUR","800000");
+    set("Disbursements in first financial year (2022), EUR","250000");
+
+    set("Purpose code 1","15110");
+    set("Percentage 1","100");
+
+    set("Project description in Finnish","Tämä on esimerkkikuvaus suomeksi.");
+    set("Project description in English","This is an example description in English.");
+
+    set("Policy objective= Gender equality","1");
+    set("Policy objective= Climate change mitigation","1");
+    set("Climate change - mitigation %","50");
+    set("Policy objective= Climate change adaptation","1");
+    set("Climate change - adaptation %","50");
+
+    set("Geographical target area","National");
+    set("Implementing agency","Example NGO");
+    set("SDG target","13.1");
+    set("Keywords","climate,mitigation,adaptation");
+    toast("Esimerkkirivi täytetty.");
+  });
+
+  function set(key, val){
+    const el = $(fieldId(key));
+    if(el) el.value = val;
+  }
+
+  // init
+  buildForm();
+  renderTable();
+})();
+</script>
+</body>
+</html>
